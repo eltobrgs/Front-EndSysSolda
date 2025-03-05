@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useFetch } from '../hooks/useFetch';
-import { Aluno, Curso } from '../types';
+import { Aluno, Curso, API_BASE_URL } from '../types';
 import { PlusIcon, PencilIcon, TrashIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 type DestroCanhoto = 'DESTRO' | 'CANHOTO';
@@ -33,7 +33,7 @@ export function Alunos() {
   const handleDelete = async (id: number) => {
     if (window.confirm('Tem certeza que deseja excluir este aluno?')) {
       try {
-        await fetch(`http://localhost:3000/api/alunos/${id}`, {
+        await fetch(`${API_BASE_URL}/api/alunos/${id}`, {
           method: 'DELETE',
           headers: {
             Authorization: `Bearer ${localStorage.getItem('@SysSolda:token')}`,
@@ -263,8 +263,8 @@ function AlunoModal({ aluno, cursos, onClose, onSave }: AlunoModalProps) {
     e.preventDefault();
 
     const url = aluno
-      ? `http://localhost:3000/api/alunos/${aluno.id}`
-      : 'http://localhost:3000/api/alunos';
+      ? `${API_BASE_URL}/api/alunos/${aluno.id}`
+      : `${API_BASE_URL}/api/alunos`;
     const method = aluno ? 'PUT' : 'POST';
 
     // Filtra apenas os módulos selecionados
@@ -609,7 +609,7 @@ function ProgressoModal({ aluno, onClose, onSave }: ProgressoModalProps) {
 
     try {
       const response = await fetch(
-        `http://localhost:3000/api/alunos/${aluno.id}/progresso`,
+        `${API_BASE_URL}/api/alunos/${aluno.id}/progresso`,
         {
           method: 'PUT',
           headers: {

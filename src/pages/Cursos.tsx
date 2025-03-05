@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useFetch } from '../hooks/useFetch';
-import { Curso } from '../types';
+import { Curso, API_BASE_URL } from '../types';
 import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 interface NovoModulo {
@@ -39,7 +39,7 @@ export function Cursos() {
   const handleDelete = async (id: number) => {
     if (window.confirm('Tem certeza que deseja excluir este curso?')) {
       try {
-        await fetch(`http://localhost:3000/api/cursos/${id}`, {
+        await fetch(`${API_BASE_URL}/api/cursos/${id}`, {
           method: 'DELETE',
           headers: {
             Authorization: `Bearer ${localStorage.getItem('@SysSolda:token')}`,
@@ -207,8 +207,8 @@ function CursoModal({ curso, onClose, onSave }: CursoModalProps) {
     e.preventDefault();
 
     const url = curso
-      ? `http://localhost:3000/api/cursos/${curso.id}`
-      : 'http://localhost:3000/api/cursos';
+      ? `${API_BASE_URL}/api/cursos/${curso.id}`
+      : `${API_BASE_URL}/api/cursos`;
     const method = curso ? 'PUT' : 'POST';
 
     try {

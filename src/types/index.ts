@@ -1,3 +1,5 @@
+export const API_BASE_URL = 'https://back-endsyssolda.onrender.com';
+
 export interface Usuario {
   id: number;
   email: string;

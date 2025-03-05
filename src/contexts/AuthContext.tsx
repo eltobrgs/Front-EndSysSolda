@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Usuario, AuthResponse } from '../types';
+import { Usuario, AuthResponse, API_BASE_URL } from '../types';
 
 interface AuthContextData {
   usuario: Usuario | null;
@@ -28,7 +28,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const signIn = async (email: string, senha: string) => {
     try {
-      const response = await fetch('http://localhost:3000/api/auth/login', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { API_BASE_URL } from '../types';
 
 interface FetchOptions extends RequestInit {
   auth?: boolean;
@@ -24,7 +25,7 @@ export function useFetch<T>(): UseFetchResponse<T> {
       setError(null);
 
       const token = localStorage.getItem('@SysSolda:token');
-      const baseUrl = 'http://localhost:3000';
+      const baseUrl = API_BASE_URL;
       const headers = new Headers(options.headers || {});
 
       if (options.auth !== false && token) {
