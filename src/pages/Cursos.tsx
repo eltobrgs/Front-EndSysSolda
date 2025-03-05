@@ -23,6 +23,7 @@ export function Cursos() {
   const [editingCurso, setEditingCurso] = useState<Curso | null>(null);
   const { data: cursos, fetchData: fetchCursos } = useFetch<Curso[]>();
   const [loading, setLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState<number | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -39,6 +40,7 @@ export function Cursos() {
   const handleDelete = async (id: number) => {
     if (window.confirm('Tem certeza que deseja excluir este curso?')) {
       try {
+        setIsDeleting(id);
         await fetch(`${API_BASE_URL}/api/cursos/${id}`, {
           method: 'DELETE',
           headers: {
@@ -48,6 +50,8 @@ export function Cursos() {
         fetchCursos('/api/cursos');
       } catch (error) {
         console.error('Erro ao excluir curso:', error);
+      } finally {
+        setIsDeleting(null);
       }
     }
   };
@@ -99,9 +103,14 @@ export function Cursos() {
                   </button>
                   <button
                     onClick={() => handleDelete(curso.id)}
-                    className="p-1 text-red-600 hover:text-red-900"
+                    className="p-1 text-red-600 hover:text-red-900 disabled:opacity-50"
+                    disabled={isDeleting === curso.id}
                   >
-                    <TrashIcon className="w-5 h-5" />
+                    {isDeleting === curso.id ? (
+                      <div className="w-5 h-5 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
+                    ) : (
+                      <TrashIcon className="w-5 h-5" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -202,9 +211,13 @@ function CursoModal({ curso, onClose, onSave }: CursoModalProps) {
   });
 
   const [moduloEditandoIndex, setModuloEditandoIndex] = useState<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isAddingModulo, setIsAddingModulo] = useState(false);
+  const [isAddingAula, setIsAddingAula] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
 
     const url = curso
       ? `${API_BASE_URL}/api/cursos/${curso.id}`
@@ -228,16 +241,23 @@ function CursoModal({ curso, onClose, onSave }: CursoModalProps) {
       onSave();
     } catch (error) {
       console.error('Erro ao salvar curso:', error);
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const adicionarModulo = () => {
     if (novoModulo.nome && novoModulo.descricao) {
-      setFormData({
-        ...formData,
-        modulos: [...formData.modulos, { ...novoModulo, id: Date.now(), aulas: [] }],
-      });
-      setNovoModulo({ nome: '', descricao: '', aulas: [] });
+      setIsAddingModulo(true);
+      try {
+        setFormData({
+          ...formData,
+          modulos: [...formData.modulos, { ...novoModulo, id: Date.now(), aulas: [] }],
+        });
+        setNovoModulo({ nome: '', descricao: '', aulas: [] });
+      } finally {
+        setIsAddingModulo(false);
+      }
     }
   };
 
@@ -249,13 +269,19 @@ function CursoModal({ curso, onClose, onSave }: CursoModalProps) {
 
   const adicionarAula = (moduloIndex: number) => {
     if (novaAula.nome && novaAula.descricao && novaAula.cargaHoraria > 0) {
-      const novosModulos = [...formData.modulos];
-      novosModulos[moduloIndex].aulas = [
-        ...(novosModulos[moduloIndex].aulas || []),
-        { ...novaAula, id: Date.now() },
-      ];
-      setFormData({ ...formData, modulos: novosModulos });
-      setNovaAula({ nome: '', descricao: '', cargaHoraria: 0, siglaTecnica: '' });
+      setIsAddingAula(true);
+      try {
+        const novosModulos = [...formData.modulos];
+        novosModulos[moduloIndex].aulas = [
+          ...(novosModulos[moduloIndex].aulas || []),
+          { ...novaAula, id: Date.now() },
+        ];
+        setFormData({ ...formData, modulos: novosModulos });
+        setNovaAula({ nome: '', descricao: '', cargaHoraria: 0, siglaTecnica: '' });
+        setModuloEditandoIndex(null);
+      } finally {
+        setIsAddingAula(false);
+      }
     }
   };
 
@@ -451,9 +477,14 @@ function CursoModal({ curso, onClose, onSave }: CursoModalProps) {
                             adicionarAula(moduloIndex);
                             setModuloEditandoIndex(null);
                           }}
-                          className="btn btn-secondary whitespace-nowrap w-full"
+                          className="btn btn-secondary whitespace-nowrap w-full disabled:opacity-50"
+                          disabled={isAddingAula || !novaAula.nome || !novaAula.descricao || novaAula.cargaHoraria <= 0}
                         >
-                          Adicionar Aula
+                          {isAddingAula ? (
+                            <div className="w-5 h-5 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
+                          ) : (
+                            'Adicionar Aula'
+                          )}
                         </button>
                       </div>
                     )}
@@ -496,9 +527,14 @@ function CursoModal({ curso, onClose, onSave }: CursoModalProps) {
                   <button
                     type="button"
                     onClick={adicionarModulo}
-                    className="btn btn-secondary w-full sm:w-auto"
+                    className="btn btn-secondary w-full sm:w-auto disabled:opacity-50"
+                    disabled={isAddingModulo || !novoModulo.nome || !novoModulo.descricao}
                   >
-                    Adicionar Módulo
+                    {isAddingModulo ? (
+                      <div className="w-5 h-5 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
+                    ) : (
+                      'Adicionar Módulo'
+                    )}
                   </button>
                 </div>
               </div>
@@ -509,12 +545,21 @@ function CursoModal({ curso, onClose, onSave }: CursoModalProps) {
             <button
               type="button"
               onClick={onClose}
-              className="btn btn-secondary w-full sm:w-auto"
+              disabled={isSaving}
+              className="btn btn-secondary w-full sm:w-auto disabled:opacity-50"
             >
               Cancelar
             </button>
-            <button type="submit" className="btn btn-primary w-full sm:w-auto">
-              Salvar
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="btn btn-primary w-full sm:w-auto disabled:opacity-50"
+            >
+              {isSaving ? (
+                <div className="w-5 h-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              ) : (
+                'Salvar'
+              )}
             </button>
           </div>
         </form>

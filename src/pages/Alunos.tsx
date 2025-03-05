@@ -12,6 +12,7 @@ export function Alunos() {
   const { data: alunos, fetchData: fetchAlunos } = useFetch<Aluno[]>();
   const { data: cursos, fetchData: fetchCursos } = useFetch<Curso[]>();
   const [loading, setLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState<number | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -33,6 +34,7 @@ export function Alunos() {
   const handleDelete = async (id: number) => {
     if (window.confirm('Tem certeza que deseja excluir este aluno?')) {
       try {
+        setIsDeleting(id);
         await fetch(`${API_BASE_URL}/api/alunos/${id}`, {
           method: 'DELETE',
           headers: {
@@ -42,6 +44,8 @@ export function Alunos() {
         fetchAlunos('/api/alunos');
       } catch (error) {
         console.error('Erro ao excluir aluno:', error);
+      } finally {
+        setIsDeleting(null);
       }
     }
   };
@@ -139,10 +143,15 @@ export function Alunos() {
                       </button>
                       <button
                         onClick={() => handleDelete(aluno.id)}
-                        className="p-1 text-red-600 hover:text-red-900"
+                        className="p-1 text-red-600 hover:text-red-900 disabled:opacity-50"
+                        disabled={isDeleting === aluno.id}
                         title="Excluir Aluno"
                       >
-                        <TrashIcon className="w-5 h-5" />
+                        {isDeleting === aluno.id ? (
+                          <div className="w-5 h-5 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
+                        ) : (
+                          <TrashIcon className="w-5 h-5" />
+                        )}
                       </button>
                     </div>
                   </td>
@@ -223,6 +232,8 @@ function AlunoModal({ aluno, cursos, onClose, onSave }: AlunoModalProps) {
         })) || []
   );
 
+  const [isSaving, setIsSaving] = useState(false);
+
   const handleCursoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const cursoId = Number(e.target.value);
     setFormData({ ...formData, cursoId });
@@ -261,6 +272,7 @@ function AlunoModal({ aluno, cursos, onClose, onSave }: AlunoModalProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
 
     const url = aluno
       ? `${API_BASE_URL}/api/alunos/${aluno.id}`
@@ -297,6 +309,8 @@ function AlunoModal({ aluno, cursos, onClose, onSave }: AlunoModalProps) {
       onSave();
     } catch (error) {
       console.error('Erro ao salvar aluno:', error);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -530,11 +544,24 @@ function AlunoModal({ aluno, cursos, onClose, onSave }: AlunoModalProps) {
           )}
 
           <div className="flex justify-end space-x-3 mt-6">
-            <button type="button" onClick={onClose} className="btn btn-secondary">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSaving}
+              className="btn btn-secondary disabled:opacity-50"
+            >
               Cancelar
             </button>
-            <button type="submit" className="btn btn-primary">
-              Salvar
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="btn btn-primary disabled:opacity-50"
+            >
+              {isSaving ? (
+                <div className="w-5 h-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              ) : (
+                'Salvar'
+              )}
             </button>
           </div>
         </form>
@@ -563,6 +590,8 @@ function ProgressoModal({ aluno, onClose, onSave }: ProgressoModalProps) {
       dataTermino: am.dataTermino ? new Date(am.dataTermino).toISOString().split('T')[0] : '',
     })) || []
   );
+
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleModuloChange = (moduloId: number, field: string, value: string) => {
     setModulosStatus(
@@ -606,6 +635,7 @@ function ProgressoModal({ aluno, onClose, onSave }: ProgressoModalProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
 
     try {
       const response = await fetch(
@@ -634,6 +664,8 @@ function ProgressoModal({ aluno, onClose, onSave }: ProgressoModalProps) {
       onSave();
     } catch (error) {
       console.error('Erro ao atualizar progresso:', error);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -759,11 +791,24 @@ function ProgressoModal({ aluno, onClose, onSave }: ProgressoModalProps) {
           </div>
 
           <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-6">
-            <button type="button" onClick={onClose} className="btn btn-secondary w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSaving}
+              className="btn btn-secondary w-full sm:w-auto disabled:opacity-50"
+            >
               Cancelar
             </button>
-            <button type="submit" className="btn btn-primary w-full sm:w-auto">
-              Salvar
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="btn btn-primary w-full sm:w-auto disabled:opacity-50"
+            >
+              {isSaving ? (
+                <div className="w-5 h-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              ) : (
+                'Salvar'
+              )}
             </button>
           </div>
         </form>
