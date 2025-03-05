@@ -230,19 +230,35 @@ function AlunoModal({ aluno, cursos, onClose, onSave }: AlunoModalProps) {
     dataInicio: string;
     dataTermino: string;
   }[]>(
-    aluno?.alunoModulos
-      ? aluno.alunoModulos.map((am) => ({
-          moduloId: am.moduloId,
-          selecionado: true,
-          dataInicio: am.dataInicio ? new Date(am.dataInicio).toISOString().split('T')[0] : '',
-          dataTermino: am.dataTermino ? new Date(am.dataTermino).toISOString().split('T')[0] : '',
-        }))
-      : selectedCurso?.modulos?.map((modulo) => ({
+    (() => {
+      // Primeiro, pegamos o curso atual
+      const cursoAtual = aluno?.curso || cursos[0] || null;
+      
+      if (!cursoAtual) return [];
+
+      // Criamos um mapa dos módulos do aluno para fácil acesso
+      const alunoModulosMap = new Map(
+        aluno?.alunoModulos?.map(am => [
+          am.moduloId,
+          {
+            selecionado: true,
+            dataInicio: am.dataInicio ? new Date(am.dataInicio).toISOString().split('T')[0] : '',
+            dataTermino: am.dataTermino ? new Date(am.dataTermino).toISOString().split('T')[0] : '',
+          }
+        ]) || []
+      );
+
+      // Retornamos todos os módulos do curso, marcando como selecionados aqueles que o aluno já tem
+      return cursoAtual.modulos?.map(modulo => {
+        const moduloDoAluno = alunoModulosMap.get(modulo.id);
+        return {
           moduloId: modulo.id,
-          selecionado: false,
-          dataInicio: '',
-          dataTermino: '',
-        })) || []
+          selecionado: !!moduloDoAluno,
+          dataInicio: moduloDoAluno?.dataInicio || '',
+          dataTermino: moduloDoAluno?.dataTermino || '',
+        };
+      }) || [];
+    })()
   );
 
   const [isSaving, setIsSaving] = useState(false);
