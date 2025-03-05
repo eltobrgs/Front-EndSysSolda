@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useFetch } from '../hooks/useFetch';
 import { Aluno, Curso, API_BASE_URL } from '../types';
 import { PlusIcon, PencilIcon, TrashIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { RefreshButton } from '../components/RefreshButton';
 
 type DestroCanhoto = 'DESTRO' | 'CANHOTO';
 
@@ -71,7 +72,19 @@ export function Alunos() {
   return (
     <div className="space-y-6 p-4">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-900">Alunos</h1>
+        <div className="flex items-center space-x-2">
+          <h1 className="text-2xl font-semibold text-gray-900">Alunos</h1>
+          <RefreshButton 
+            onClick={() => {
+              setLoading(true);
+              Promise.all([
+                fetchAlunos('/api/alunos'),
+                fetchCursos('/api/cursos')
+              ]).finally(() => setLoading(false));
+            }} 
+            isLoading={loading} 
+          />
+        </div>
         <button
           onClick={() => {
             setEditingAluno(null);

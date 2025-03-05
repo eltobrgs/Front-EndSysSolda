@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useFetch } from '../hooks/useFetch';
 import { Curso, API_BASE_URL } from '../types';
 import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { RefreshButton } from '../components/RefreshButton';
 
 interface NovoModulo {
   id: number;
@@ -67,7 +68,10 @@ export function Cursos() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-900">Cursos</h1>
+        <div className="flex items-center space-x-2">
+          <h1 className="text-2xl font-semibold text-gray-900">Cursos</h1>
+          <RefreshButton onClick={() => fetchCursos('/api/cursos')} isLoading={loading} />
+        </div>
         <button
           onClick={() => {
             setEditingCurso(null);

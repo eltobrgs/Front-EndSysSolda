@@ -1,26 +1,28 @@
 import { useEffect, useState } from 'react';
 import { useFetch } from '../hooks/useFetch';
 import { Aluno, Curso } from '../types';
+import { RefreshButton } from '../components/RefreshButton';
 
 export function Dashboard() {
   const { data: alunos, fetchData: fetchAlunos } = useFetch<Aluno[]>();
   const { data: cursos, fetchData: fetchCursos } = useFetch<Curso[]>();
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        await Promise.all([
-          fetchAlunos('/api/alunos'),
-          fetchCursos('/api/cursos'),
-        ]);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        fetchAlunos('/api/alunos'),
+        fetchCursos('/api/cursos'),
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     loadData();
-  }, [fetchAlunos, fetchCursos]);
+  }, []);
 
   if (loading) {
     return (
@@ -31,8 +33,13 @@ export function Dashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
+    <div className="space-y-6 p-4">
+      <div className="flex justify-between items-center">
+        <div className="flex items-center space-x-2">
+          <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
+          <RefreshButton onClick={loadData} isLoading={loading} />
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {/* Card de Alunos */}
