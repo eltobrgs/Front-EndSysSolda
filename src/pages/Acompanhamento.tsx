@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useFetch } from '../hooks/useFetch';
 import { Aluno, API_BASE_URL } from '../types';
 import { RefreshButton } from '../components/RefreshButton';
 import { CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { FiltroAlunos } from '../components/FiltroAlunos';
 
 interface Presenca {
   id: number;
@@ -13,15 +14,29 @@ interface Presenca {
   horasFeitas: number;
 }
 
-export function Acompanhamento() {
-  const [selectedAluno, setSelectedAluno] = useState<Aluno | null>(null);
-  const { data: alunos, fetchData: fetchAlunos } = useFetch<Aluno[]>();
-  const [modulosPresencas, setModulosPresencas] = useState<{
+interface AlunoPresencas {
+  [alunoId: number]: {
     [moduloId: number]: Presenca[];
-  }>({});
+  };
+}
+
+interface Filtros {
+  cursoId: number | null;
+  moduloId: number | null;
+  nomeAluno: string;
+}
+
+export function Acompanhamento() {
+  const { data: alunos, fetchData: fetchAlunos } = useFetch<Aluno[]>();
+  const [alunosPresencas, setAlunosPresencas] = useState<AlunoPresencas>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [filtros, setFiltros] = useState<Filtros>({
+    cursoId: null,
+    moduloId: null,
+    nomeAluno: '',
+  });
 
   useEffect(() => {
     const loadData = async () => {
@@ -51,38 +66,40 @@ export function Acompanhamento() {
     }
   };
 
-  const handleAlunoChange = async (alunoId: number) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const aluno = alunos?.find(a => a.id === alunoId) || null;
-      setSelectedAluno(aluno);
+  useEffect(() => {
+    const carregarPresencas = async () => {
+      if (!alunos) return;
+      
+      setIsLoading(true);
+      setError(null);
+      const novasPresencas: AlunoPresencas = {};
 
-      if (aluno) {
-        const novasPresencas: typeof modulosPresencas = {};
-        
-        // Carregar presenças para todos os módulos do aluno
-        for (const alunoModulo of aluno.alunoModulos || []) {
-          const presencas = await fetchPresencas(aluno.id, alunoModulo.moduloId);
-          novasPresencas[alunoModulo.moduloId] = presencas;
+      try {
+        for (const aluno of alunos) {
+          novasPresencas[aluno.id] = {};
+          
+          for (const alunoModulo of aluno.alunoModulos || []) {
+            const presencas = await fetchPresencas(aluno.id, alunoModulo.moduloId);
+            novasPresencas[aluno.id][alunoModulo.moduloId] = presencas;
+          }
         }
 
-        setModulosPresencas(novasPresencas);
+        setAlunosPresencas(novasPresencas);
+      } catch (error) {
+        console.error('Erro ao carregar dados:', error);
+        setError('Erro ao carregar dados. Por favor, tente novamente.');
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error('Erro ao carregar dados do aluno:', error);
-      setError('Erro ao carregar dados do aluno. Por favor, tente novamente.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    };
 
-  const handlePresencaChange = async (moduloId: number, celulaId: number, presente: boolean) => {
-    if (!selectedAluno) return;
+    carregarPresencas();
+  }, [alunos]);
 
+  const handlePresencaChange = async (alunoId: number, moduloId: number, celulaId: number, presente: boolean) => {
     setIsSaving(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/alunos/${selectedAluno.id}/presencas`, {
+      const response = await fetch(`${API_BASE_URL}/api/alunos/${alunoId}/presencas`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -100,10 +117,13 @@ export function Acompanhamento() {
       }
 
       // Atualizar as presenças do módulo
-      const presencas = await fetchPresencas(selectedAluno.id, moduloId);
-      setModulosPresencas(prev => ({
+      const presencas = await fetchPresencas(alunoId, moduloId);
+      setAlunosPresencas(prev => ({
         ...prev,
-        [moduloId]: presencas
+        [alunoId]: {
+          ...prev[alunoId],
+          [moduloId]: presencas
+        }
       }));
     } catch (error) {
       console.error('Erro ao registrar presença:', error);
@@ -112,6 +132,44 @@ export function Acompanhamento() {
       setIsSaving(false);
     }
   };
+
+  // Agrupar alunos por curso com filtros aplicados
+  const alunosFiltrados = useMemo(() => {
+    if (!alunos) return [];
+
+    return alunos.filter(aluno => {
+      // Filtro por nome
+      if (filtros.nomeAluno && !aluno.nome.toLowerCase().includes(filtros.nomeAluno.toLowerCase())) {
+        return false;
+      }
+
+      // Filtro por curso
+      if (filtros.cursoId && aluno.cursoId !== filtros.cursoId) {
+        return false;
+      }
+
+      // Filtro por módulo
+      if (filtros.moduloId) {
+        return aluno.alunoModulos?.some(am => am.moduloId === filtros.moduloId);
+      }
+
+      return true;
+    });
+  }, [alunos, filtros]);
+
+  const alunosPorCurso = useMemo(() => {
+    return alunosFiltrados.reduce((acc, aluno) => {
+      const cursoId = aluno.cursoId;
+      if (!acc[cursoId]) {
+        acc[cursoId] = {
+          curso: aluno.curso,
+          alunos: []
+        };
+      }
+      acc[cursoId].alunos.push(aluno);
+      return acc;
+    }, {} as { [cursoId: number]: { curso: any, alunos: Aluno[] } });
+  }, [alunosFiltrados]);
 
   if (!alunos) {
     return (
@@ -133,25 +191,12 @@ export function Acompanhamento() {
         </div>
       </div>
 
-      <div>
-        <label htmlFor="aluno" className="block text-sm font-medium text-gray-700">
-          Selecione o Aluno
-        </label>
-        <select
-          id="aluno"
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-          onChange={(e) => handleAlunoChange(Number(e.target.value))}
-          value={selectedAluno?.id || ''}
-          disabled={isLoading || isSaving}
-        >
-          <option value="">Selecione um aluno</option>
-          {alunos?.map((aluno) => (
-            <option key={aluno.id} value={aluno.id}>
-              {aluno.nome}
-            </option>
-          ))}
-        </select>
-      </div>
+      {alunos && (
+        <FiltroAlunos
+          cursos={Array.from(new Set(alunos.map(a => a.curso))).filter((curso): curso is NonNullable<typeof curso> => curso !== undefined && curso !== null)}
+          onFiltroChange={setFiltros}
+        />
+      )}
 
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-md">
@@ -163,115 +208,136 @@ export function Acompanhamento() {
         <div className="flex items-center justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary-500 border-t-transparent"></div>
         </div>
-      ) : selectedAluno && (
+      ) : (
         <div className="space-y-8">
-          {selectedAluno.curso?.modulos?.filter(modulo =>
-            selectedAluno.alunoModulos?.some(am => am.moduloId === modulo.id)
-          ).map((modulo) => {
-            const alunoModulo = selectedAluno.alunoModulos?.find(am => am.moduloId === modulo.id);
-            const presencas = modulosPresencas[modulo.id] || [];
+          {Object.entries(alunosPorCurso).map(([cursoId, { curso, alunos }]) => (
+            <div key={cursoId} className="bg-white shadow-md rounded-lg p-6">
+              <h2 className="text-xl font-semibold mb-6">{curso.nome}</h2>
+              <div className="space-y-8">
+                {alunos.map((aluno) => (
+                  <div key={aluno.id} className="border-t pt-6 first:border-t-0 first:pt-0">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-medium text-gray-900">{aluno.nome}</h3>
+                    </div>
+                    <div className="space-y-6">
+                      {aluno.curso?.modulos
+                        ?.filter(modulo => 
+                          (!filtros.moduloId || modulo.id === filtros.moduloId) &&
+                          aluno.alunoModulos?.some(am => am.moduloId === modulo.id)
+                        )
+                        .map((modulo) => {
+                          const alunoModulo = aluno.alunoModulos?.find(am => am.moduloId === modulo.id);
+                          const presencas = alunosPresencas[aluno.id]?.[modulo.id] || [];
 
-            return (
-              <div key={modulo.id} className="bg-white shadow-md rounded-lg p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="text-lg font-medium text-gray-900">{modulo.nome}</h2>
-                    <p className="text-sm text-gray-500">{modulo.descricao}</p>
-                  </div>
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-600">Status:</span>
-                      <span className={`text-sm font-medium ${
-                        alunoModulo?.status === 'concluido' 
-                          ? 'text-green-600' 
-                          : alunoModulo?.status === 'em_progresso' 
-                            ? 'text-blue-600' 
-                            : 'text-gray-600'
-                      }`}>
-                        {alunoModulo?.status === 'concluido' 
-                          ? 'Concluído' 
-                          : alunoModulo?.status === 'em_progresso' 
-                            ? 'Em Progresso' 
-                            : 'Pendente'}
-                      </span>
+                          return (
+                            <div key={modulo.id} className="bg-gray-50 p-4 rounded-lg">
+                              <div className="flex items-center justify-between mb-4">
+                                <div>
+                                  <h4 className="font-medium">{modulo.nome}</h4>
+                                  <p className="text-sm text-gray-500">{modulo.descricao}</p>
+                                </div>
+                                <div className="flex items-center space-x-4">
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-sm text-gray-600">Status:</span>
+                                    <span className={`text-sm font-medium ${
+                                      alunoModulo?.status === 'concluido' 
+                                        ? 'text-green-600' 
+                                        : alunoModulo?.status === 'em_progresso' 
+                                          ? 'text-blue-600' 
+                                          : 'text-gray-600'
+                                    }`}>
+                                      {alunoModulo?.status === 'concluido' 
+                                        ? 'Concluído' 
+                                        : alunoModulo?.status === 'em_progresso' 
+                                          ? 'Em Progresso' 
+                                          : 'Pendente'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                {modulo.celulas?.map((celula) => {
+                                  const presenca = presencas.find(p => p.celulaId === celula.id);
+
+                                  return (
+                                    <div key={celula.id} className="bg-white p-3 rounded border">
+                                      <div className="flex flex-col space-y-2">
+                                        <div className="flex justify-between items-start">
+                                          <span className="text-sm font-medium">{celula.siglaTecnica}</span>
+                                          {presenca && presenca.presente !== null && (
+                                            <span className="text-xs text-gray-500">
+                                              {presenca.data ? new Date(presenca.data).toLocaleDateString() : ''}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="flex gap-2">
+                                          <button
+                                            type="button"
+                                            onClick={() => handlePresencaChange(
+                                              aluno.id,
+                                              modulo.id,
+                                              celula.id,
+                                              true
+                                            )}
+                                            disabled={isSaving || presenca?.presente === true}
+                                            className={`flex-1 p-2 rounded flex items-center justify-center transition-colors ${
+                                              presenca?.presente === true
+                                                ? 'bg-green-100 text-green-600'
+                                                : 'bg-gray-100 text-gray-600 hover:bg-green-50 hover:text-green-600'
+                                            } disabled:opacity-50`}
+                                            title="Marcar Presença"
+                                          >
+                                            <CheckIcon className="w-5 h-5" />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handlePresencaChange(
+                                              aluno.id,
+                                              modulo.id,
+                                              celula.id,
+                                              false
+                                            )}
+                                            disabled={isSaving || presenca?.presente === false}
+                                            className={`flex-1 p-2 rounded flex items-center justify-center transition-colors ${
+                                              presenca?.presente === false
+                                                ? 'bg-red-100 text-red-600'
+                                                : 'bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-600'
+                                            } disabled:opacity-50`}
+                                            title="Marcar Falta"
+                                          >
+                                            <XMarkIcon className="w-5 h-5" />
+                                          </button>
+                                        </div>
+                                        <div className="text-xs text-center">
+                                          {presenca ? (
+                                            presenca.presente === null ? (
+                                              <span className="text-gray-500">Não registrado</span>
+                                            ) : (
+                                              <span className={`font-medium ${
+                                                presenca.presente ? 'text-green-600' : 'text-red-600'
+                                              }`}>
+                                                {presenca.presente ? 'Presente' : 'Falta'}
+                                              </span>
+                                            )
+                                          ) : (
+                                            <span className="text-gray-500">Não registrado</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
                     </div>
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                  {modulo.celulas?.map((celula) => {
-                    const presenca = presencas.find(p => p.celulaId === celula.id);
-
-                    return (
-                      <div key={celula.id} className="bg-white p-3 rounded border">
-                        <div className="flex flex-col space-y-2">
-                          <div className="flex justify-between items-start">
-                            <span className="text-sm font-medium">{celula.siglaTecnica}</span>
-                            {presenca && presenca.presente !== null && (
-                              <span className="text-xs text-gray-500">
-                                {presenca.data ? new Date(presenca.data).toLocaleDateString() : ''}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handlePresencaChange(
-                                modulo.id,
-                                celula.id,
-                                true
-                              )}
-                              disabled={isSaving || presenca?.presente === true}
-                              className={`flex-1 p-2 rounded flex items-center justify-center transition-colors ${
-                                presenca?.presente === true
-                                  ? 'bg-green-100 text-green-600'
-                                  : 'bg-gray-100 text-gray-600 hover:bg-green-50 hover:text-green-600'
-                              } disabled:opacity-50`}
-                              title="Marcar Presença"
-                            >
-                              <CheckIcon className="w-5 h-5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handlePresencaChange(
-                                modulo.id,
-                                celula.id,
-                                false
-                              )}
-                              disabled={isSaving || presenca?.presente === false}
-                              className={`flex-1 p-2 rounded flex items-center justify-center transition-colors ${
-                                presenca?.presente === false
-                                  ? 'bg-red-100 text-red-600'
-                                  : 'bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-600'
-                              } disabled:opacity-50`}
-                              title="Marcar Falta"
-                            >
-                              <XMarkIcon className="w-5 h-5" />
-                            </button>
-                          </div>
-                          <div className="text-xs text-center">
-                            {presenca ? (
-                              presenca.presente === null ? (
-                                <span className="text-gray-500">Não registrado</span>
-                              ) : (
-                                <span className={`font-medium ${
-                                  presenca.presente ? 'text-green-600' : 'text-red-600'
-                                }`}>
-                                  {presenca.presente ? 'Presente' : 'Falta'}
-                                </span>
-                              )
-                            ) : (
-                              <span className="text-gray-500">Não registrado</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                ))}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
     </div>

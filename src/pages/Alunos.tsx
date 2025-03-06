@@ -1,10 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useFetch } from '../hooks/useFetch';
 import { Aluno, Curso, API_BASE_URL } from '../types';
 import { PlusIcon, PencilIcon, TrashIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { RefreshButton } from '../components/RefreshButton';
+import { FiltroAlunos } from '../components/FiltroAlunos';
 
 type DestroCanhoto = 'DESTRO' | 'CANHOTO';
+
+interface Filtros {
+  cursoId: number | null;
+  moduloId: number | null;
+  nomeAluno: string;
+}
 
 export function Alunos() {
   const [showModal, setShowModal] = useState(false);
@@ -14,6 +21,11 @@ export function Alunos() {
   const { data: cursos, fetchData: fetchCursos } = useFetch<Curso[]>();
   const [loading, setLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
+  const [filtros, setFiltros] = useState<Filtros>({
+    cursoId: null,
+    moduloId: null,
+    nomeAluno: '',
+  });
 
   useEffect(() => {
     const loadData = async () => {
@@ -59,6 +71,30 @@ export function Alunos() {
     return Math.round((modulosConcluidos / aluno.alunoModulos.length) * 100);
   };
 
+  // Filtrar alunos baseado nos filtros
+  const alunosFiltrados = useMemo(() => {
+    if (!alunos) return [];
+
+    return alunos.filter(aluno => {
+      // Filtro por nome
+      if (filtros.nomeAluno && !aluno.nome.toLowerCase().includes(filtros.nomeAluno.toLowerCase())) {
+        return false;
+      }
+
+      // Filtro por curso
+      if (filtros.cursoId && aluno.cursoId !== filtros.cursoId) {
+        return false;
+      }
+
+      // Filtro por módulo
+      if (filtros.moduloId) {
+        return aluno.alunoModulos?.some(am => am.moduloId === filtros.moduloId);
+      }
+
+      return true;
+    });
+  }, [alunos, filtros]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -71,7 +107,7 @@ export function Alunos() {
     <div className="space-y-6 p-4">
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-2">
-        <h1 className="text-2xl font-semibold text-gray-900">Alunos</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">Alunos</h1>
           <RefreshButton 
             onClick={() => {
               setLoading(true);
@@ -95,6 +131,13 @@ export function Alunos() {
         </button>
       </div>
 
+      {cursos && (
+        <FiltroAlunos
+          cursos={cursos}
+          onFiltroChange={setFiltros}
+        />
+      )}
+
       <div className="bg-white shadow-md rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="table w-full">
@@ -110,7 +153,7 @@ export function Alunos() {
               </tr>
             </thead>
             <tbody>
-              {alunos?.map((aluno) => (
+              {alunosFiltrados.map((aluno) => (
                 <tr key={aluno.id} className="border-t border-gray-200">
                   <td className="px-4 py-2">{aluno.nome}</td>
                   <td className="px-4 py-2">{aluno.cpf}</td>
