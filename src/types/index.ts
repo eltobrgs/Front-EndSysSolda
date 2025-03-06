@@ -1,5 +1,5 @@
-export const API_BASE_URL =  'http://localhost:3000'; //desenvolvimento
-// export const API_BASE_URL =  'https://back-endsyssolda.onrender.com'; //produção
+// export const API_BASE_URL =  'http://localhost:3000'; //desenvolvimento
+export const API_BASE_URL =  'https://back-endsyssolda.onrender.com'; //produção
 
 export interface Usuario {
   id: number;
