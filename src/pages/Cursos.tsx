@@ -1,23 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useFetch } from '../hooks/useFetch';
-import { Curso, API_BASE_URL } from '../types';
+import { Curso, API_BASE_URL, NovoModulo, Celula } from '../types';
 import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { RefreshButton } from '../components/RefreshButton';
-
-interface NovoModulo {
-  id: number;
-  nome: string;
-  descricao: string;
-  aulas: NovaAula[];
-}
-
-interface NovaAula {
-  id: number;
-  nome: string;
-  descricao: string;
-  cargaHoraria: number;
-  siglaTecnica: string;
-}
 
 export function Cursos() {
   const [showModal, setShowModal] = useState(false);
@@ -69,7 +54,7 @@ export function Cursos() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-2">
-          <h1 className="text-2xl font-semibold text-gray-900">Cursos</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">Cursos</h1>
           <RefreshButton onClick={() => fetchCursos('/api/cursos')} isLoading={loading} />
         </div>
         <button
@@ -113,7 +98,7 @@ export function Cursos() {
                     {isDeleting === curso.id ? (
                       <div className="w-5 h-5 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
                     ) : (
-                      <TrashIcon className="w-5 h-5" />
+                    <TrashIcon className="w-5 h-5" />
                     )}
                   </button>
                 </div>
@@ -144,10 +129,10 @@ export function Cursos() {
                       <h4 className="font-medium">{modulo.nome}</h4>
                       <p className="text-sm text-gray-600">{modulo.descricao}</p>
                       <div className="mt-2">
-                        <h5 className="text-xs font-medium text-gray-700">Aulas:</h5>
+                        <h5 className="text-xs font-medium text-gray-700">Células:</h5>
                         <ul className="list-disc list-inside text-sm">
-                          {modulo.aulas?.map((aula) => (
-                            <li key={aula.id}>{aula.nome}</li>
+                          {modulo.celulas?.map((celula) => (
+                            <li key={celula.id}>Célula {celula.ordem} - {celula.siglaTecnica}</li>
                           ))}
                         </ul>
                       </div>
@@ -191,33 +176,24 @@ function CursoModal({ curso, onClose, onSave }: CursoModalProps) {
       id: m.id,
       nome: m.nome,
       descricao: m.descricao,
-      aulas: m.aulas?.map(a => ({
-        id: a.id,
-        nome: a.nome,
-        descricao: a.descricao,
-        cargaHoraria: a.cargaHoraria,
-        siglaTecnica: a.siglaTecnica
-      })) || []
+      celulas: m.celulas?.map(c => ({
+        id: c.id,
+        ordem: c.ordem,
+        siglaTecnica: c.siglaTecnica
+      })) || [],
+      cargaHorariaTotal: m.cargaHorariaTotal
     })) as NovoModulo[],
   });
 
-  const [novoModulo, setNovoModulo] = useState<Omit<NovoModulo, 'id'>>({
+  const [novoModulo, setNovoModulo] = useState<NovoModulo>({
     nome: '',
     descricao: '',
-    aulas: [],
-  });
-
-  const [novaAula, setNovaAula] = useState<Omit<NovaAula, 'id'>>({
-    nome: '',
-    descricao: '',
-    cargaHoraria: 0,
+    numeroCelulas: 1,
     siglaTecnica: '',
   });
 
-  const [moduloEditandoIndex, setModuloEditandoIndex] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isAddingModulo, setIsAddingModulo] = useState(false);
-  const [isAddingAula, setIsAddingAula] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -251,49 +227,41 @@ function CursoModal({ curso, onClose, onSave }: CursoModalProps) {
   };
 
   const adicionarModulo = () => {
-    if (novoModulo.nome && novoModulo.descricao) {
-      setIsAddingModulo(true);
-      try {
-        setFormData({
-          ...formData,
-          modulos: [...formData.modulos, { ...novoModulo, id: Date.now(), aulas: [] }],
-        });
-        setNovoModulo({ nome: '', descricao: '', aulas: [] });
-      } finally {
-        setIsAddingModulo(false);
-      }
+    if (!novoModulo.nome || !novoModulo.descricao || !novoModulo.numeroCelulas || !novoModulo.siglaTecnica) {
+      return;
     }
-  };
 
-  const removerModulo = (index: number) => {
-    const novosModulos = [...formData.modulos];
-    novosModulos.splice(index, 1);
-    setFormData({ ...formData, modulos: novosModulos });
-  };
-
-  const adicionarAula = (moduloIndex: number) => {
-    if (novaAula.nome && novaAula.descricao && novaAula.cargaHoraria > 0) {
-      setIsAddingAula(true);
-      try {
-        const novosModulos = [...formData.modulos];
-        novosModulos[moduloIndex].aulas = [
-          ...(novosModulos[moduloIndex].aulas || []),
-          { ...novaAula, id: Date.now() },
-        ];
-        setFormData({ ...formData, modulos: novosModulos });
-        setNovaAula({ nome: '', descricao: '', cargaHoraria: 0, siglaTecnica: '' });
-        setModuloEditandoIndex(null);
-      } finally {
-        setIsAddingAula(false);
-      }
+    const numCelulas = Number(novoModulo.numeroCelulas);
+    const siglaTecnica = String(novoModulo.siglaTecnica);
+    
+    if (numCelulas < 1) {
+      return;
     }
-  };
 
-  const removerAula = (moduloIndex: number, aulaIndex: number) => {
-    const novosModulos = [...formData.modulos];
-    if (novosModulos[moduloIndex].aulas) {
-      novosModulos[moduloIndex].aulas.splice(aulaIndex, 1);
-      setFormData({ ...formData, modulos: novosModulos });
+    setIsAddingModulo(true);
+    try {
+      // Criar células baseado no número informado
+      const celulas: Celula[] = Array.from({ length: numCelulas }, (_, index) => ({
+        id: Date.now() + index,
+        ordem: index + 1,
+        siglaTecnica
+      }));
+
+      setFormData({
+        ...formData,
+        modulos: [
+          ...formData.modulos,
+          {
+            ...novoModulo,
+            id: Date.now(),
+            celulas,
+            cargaHorariaTotal: numCelulas * 2 // Cada célula = 2 horas
+          }
+        ],
+      });
+      setNovoModulo({ nome: '', descricao: '', numeroCelulas: 1, siglaTecnica: '' });
+    } finally {
+      setIsAddingModulo(false);
     }
   };
 
@@ -391,118 +359,36 @@ function CursoModal({ curso, onClose, onSave }: CursoModalProps) {
             
             <div className="space-y-4">
               {formData.modulos.map((modulo, moduloIndex) => (
-                <div key={modulo.id} className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+                <div key={modulo.id} className="bg-gray-50 p-4 rounded-lg">
                   <div className="flex justify-between items-start mb-2">
+                    <div>
                     <h4 className="font-medium">{modulo.nome}</h4>
+                      <p className="text-sm text-gray-600">{modulo.descricao}</p>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => removerModulo(moduloIndex)}
+                      onClick={() => {
+                        setFormData({
+                          ...formData,
+                          modulos: formData.modulos.filter((_, i) => i !== moduloIndex),
+                        });
+                      }}
                       className="text-red-600 hover:text-red-900"
                     >
                       <XMarkIcon className="w-5 h-5" />
                     </button>
                   </div>
-                  <p className="text-sm text-gray-600 mb-4">{modulo.descricao}</p>
-
-                  <div className="space-y-2">
-                    <h5 className="text-sm font-medium">Aulas</h5>
-                    {modulo.aulas.map((aula, aulaIndex) => (
-                      <div key={aula.id} className="flex justify-between items-center bg-white p-2 rounded">
-                        <div className="flex-1 mr-2">
-                          <span className="font-medium">{aula.nome}</span>
-                          <span className="text-sm text-gray-500 ml-2">
-                            ({aula.cargaHoraria}h)
-                          </span>
-                          {aula.siglaTecnica && (
-                            <span className="ml-2 px-2 py-0.5 bg-primary-100 text-primary-800 rounded text-sm">
-                              {aula.siglaTecnica}
-                            </span>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removerAula(moduloIndex, aulaIndex)}
-                          className="text-red-600 hover:text-red-900 flex-shrink-0"
-                        >
-                          <XMarkIcon className="w-4 h-4" />
-                        </button>
+                  
+                  <div className="grid grid-cols-5 gap-2 mt-4">
+                    {modulo.celulas?.map((celula) => (
+                      <div
+                        key={celula.id}
+                        className="p-2 bg-white rounded border border-gray-200 text-center"
+                      >
+                        <div className="text-sm font-medium">Célula {celula.ordem}</div>
+                        <div className="text-xs text-gray-500">{celula.siglaTecnica}</div>
                       </div>
                     ))}
-
-                    {moduloEditandoIndex === moduloIndex && (
-                      <div className="mt-2 space-y-2">
-                        <input
-                          type="text"
-                          placeholder="Nome da aula"
-                          className="input"
-                          value={novaAula.nome}
-                          onChange={(e) =>
-                            setNovaAula({ ...novaAula, nome: e.target.value })
-                          }
-                        />
-                        <input
-                          type="text"
-                          placeholder="Descrição da aula"
-                          className="input"
-                          value={novaAula.descricao}
-                          onChange={(e) =>
-                            setNovaAula({ ...novaAula, descricao: e.target.value })
-                          }
-                        />
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          <input
-                            type="number"
-                            placeholder="Carga horária"
-                            className="input"
-                            value={novaAula.cargaHoraria}
-                            onChange={(e) =>
-                              setNovaAula({
-                                ...novaAula,
-                                cargaHoraria: Number(e.target.value),
-                              })
-                            }
-                          />
-                          <input
-                            type="text"
-                            placeholder="Sigla Técnica (ex: 1F, 2G)"
-                            className="input"
-                            value={novaAula.siglaTecnica}
-                            onChange={(e) =>
-                              setNovaAula({
-                                ...novaAula,
-                                siglaTecnica: e.target.value.toUpperCase(),
-                              })
-                            }
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            adicionarAula(moduloIndex);
-                            setModuloEditandoIndex(null);
-                          }}
-                          className="btn btn-secondary whitespace-nowrap w-full disabled:opacity-50"
-                          disabled={isAddingAula || !novaAula.nome || !novaAula.descricao || novaAula.cargaHoraria <= 0}
-                        >
-                          {isAddingAula ? (
-                            <div className="w-5 h-5 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
-                          ) : (
-                            'Adicionar Aula'
-                          )}
-                        </button>
-                      </div>
-                    )}
-
-                    {moduloEditandoIndex !== moduloIndex && (
-                      <button
-                        type="button"
-                        onClick={() => setModuloEditandoIndex(moduloIndex)}
-                        className="btn btn-secondary btn-sm mt-2"
-                      >
-                        <PlusIcon className="w-4 h-4 mr-1" />
-                        Adicionar Aula
-                      </button>
-                    )}
                   </div>
                 </div>
               ))}
@@ -515,24 +401,43 @@ function CursoModal({ curso, onClose, onSave }: CursoModalProps) {
                     placeholder="Nome do módulo"
                     className="input"
                     value={novoModulo.nome}
-                    onChange={(e) =>
-                      setNovoModulo({ ...novoModulo, nome: e.target.value })
-                    }
+                    onChange={(e) => setNovoModulo({ ...novoModulo, nome: e.target.value })}
                   />
                   <input
                     type="text"
                     placeholder="Descrição do módulo"
                     className="input"
                     value={novoModulo.descricao}
-                    onChange={(e) =>
-                      setNovoModulo({ ...novoModulo, descricao: e.target.value })
-                    }
+                    onChange={(e) => setNovoModulo({ ...novoModulo, descricao: e.target.value })}
                   />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="numeroCelulas" className="label">Número de Células</label>
+                      <input
+                        type="number"
+                        id="numeroCelulas"
+                        className="input"
+                        value={novoModulo.numeroCelulas}
+                        onChange={(e) => setNovoModulo({ ...novoModulo, numeroCelulas: Number(e.target.value) })}
+                        min="1"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="siglaTecnica" className="label">Sigla Técnica</label>
+                      <input
+                        type="text"
+                        id="siglaTecnica"
+                        className="input"
+                        value={novoModulo.siglaTecnica}
+                        onChange={(e) => setNovoModulo({ ...novoModulo, siglaTecnica: e.target.value })}
+                      />
+                    </div>
+                  </div>
                   <button
                     type="button"
                     onClick={adicionarModulo}
                     className="btn btn-secondary w-full sm:w-auto disabled:opacity-50"
-                    disabled={isAddingModulo || !novoModulo.nome || !novoModulo.descricao}
+                    disabled={isAddingModulo || !novoModulo.nome || !novoModulo.descricao || (novoModulo.numeroCelulas || 0) <= 0 || !novoModulo.siglaTecnica}
                   >
                     {isAddingModulo ? (
                       <div className="w-5 h-5 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />

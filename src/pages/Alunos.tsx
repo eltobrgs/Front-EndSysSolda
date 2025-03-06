@@ -59,8 +59,6 @@ export function Alunos() {
     return Math.round((modulosConcluidos / aluno.alunoModulos.length) * 100);
   };
 
-  
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -73,7 +71,7 @@ export function Alunos() {
     <div className="space-y-6 p-4">
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-2">
-          <h1 className="text-2xl font-semibold text-gray-900">Alunos</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">Alunos</h1>
           <RefreshButton 
             onClick={() => {
               setLoading(true);
@@ -163,7 +161,7 @@ export function Alunos() {
                         {isDeleting === aluno.id ? (
                           <div className="w-5 h-5 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
                         ) : (
-                          <TrashIcon className="w-5 h-5" />
+                        <TrashIcon className="w-5 h-5" />
                         )}
                       </button>
                     </div>
@@ -228,34 +226,31 @@ function AlunoModal({ aluno, cursos, onClose, onSave }: AlunoModalProps) {
     moduloId: number;
     selecionado: boolean;
     dataInicio: string;
-    dataTermino: string;
+    dataFim: string;
   }[]>(
     (() => {
-      // Primeiro, pegamos o curso atual
       const cursoAtual = aluno?.curso || cursos[0] || null;
       
       if (!cursoAtual) return [];
 
-      // Criamos um mapa dos módulos do aluno para fácil acesso
       const alunoModulosMap = new Map(
         aluno?.alunoModulos?.map(am => [
           am.moduloId,
           {
-            selecionado: true,
-            dataInicio: am.dataInicio ? new Date(am.dataInicio).toISOString().split('T')[0] : '',
-            dataTermino: am.dataTermino ? new Date(am.dataTermino).toISOString().split('T')[0] : '',
+          selecionado: true,
+          dataInicio: am.dataInicio ? new Date(am.dataInicio).toISOString().split('T')[0] : '',
+          dataFim: am.dataFim ? new Date(am.dataFim).toISOString().split('T')[0] : '',
           }
         ]) || []
       );
 
-      // Retornamos todos os módulos do curso, marcando como selecionados aqueles que o aluno já tem
       return cursoAtual.modulos?.map(modulo => {
         const moduloDoAluno = alunoModulosMap.get(modulo.id);
         return {
           moduloId: modulo.id,
           selecionado: !!moduloDoAluno,
           dataInicio: moduloDoAluno?.dataInicio || '',
-          dataTermino: moduloDoAluno?.dataTermino || '',
+          dataFim: moduloDoAluno?.dataFim || '',
         };
       }) || [];
     })()
@@ -276,7 +271,7 @@ function AlunoModal({ aluno, cursos, onClose, onSave }: AlunoModalProps) {
           moduloId: modulo.id,
           selecionado: false,
           dataInicio: '',
-          dataTermino: '',
+          dataFim: '',
         })) || []
       );
     } else {
@@ -315,7 +310,7 @@ function AlunoModal({ aluno, cursos, onClose, onSave }: AlunoModalProps) {
         moduloId: m.moduloId,
         status: 'PENDENTE',
         dataInicio: m.dataInicio || null,
-        dataTermino: m.dataTermino || null,
+        dataFim: m.dataFim || null,
       }));
 
     try {
@@ -534,9 +529,9 @@ function AlunoModal({ aluno, cursos, onClose, onSave }: AlunoModalProps) {
                               <input
                                 type="date"
                                 id={`termino-${modulo.id}`}
-                                value={moduloSelecionado?.dataTermino || ''}
+                                value={moduloSelecionado?.dataFim || ''}
                                 onChange={(e) =>
-                                  handleModuloChange(modulo.id, 'dataTermino', e.target.value)
+                                  handleModuloChange(modulo.id, 'dataFim', e.target.value)
                                 }
                                 className="input py-1 px-2 text-sm w-full"
                               />
@@ -548,21 +543,19 @@ function AlunoModal({ aluno, cursos, onClose, onSave }: AlunoModalProps) {
                       <p className="text-sm text-gray-600">{modulo.descricao}</p>
                       
                       {moduloSelecionado?.selecionado && (
-                        <div className="mt-2">
-                          <h5 className="text-sm font-medium">Aulas:</h5>
-                          <ul className="list-disc list-inside text-sm">
-                            {modulo.aulas?.map((aula) => (
-                              <li key={aula.id} className="flex items-center space-x-2">
-                                <span>{aula.nome}</span>
-                                <span className="text-gray-500">({aula.cargaHoraria}h)</span>
-                                {aula.siglaTecnica && (
-                                  <span className="px-2 py-0.5 bg-primary-100 text-primary-800 rounded text-xs">
-                                    {aula.siglaTecnica}
-                                  </span>
-                                )}
-                              </li>
+                        <div className="mt-4">
+                          <h5 className="text-sm font-medium mb-2">Células do Módulo:</h5>
+                          <div className="grid grid-cols-5 gap-2">
+                            {modulo.celulas?.map((celula) => (
+                              <div
+                                key={celula.id}
+                                className="p-2 bg-white rounded border border-gray-200 text-center"
+                              >
+                                <div className="text-sm font-medium">Célula {celula.ordem}</div>
+                                <div className="text-xs text-gray-500">{celula.siglaTecnica}</div>
+                              </div>
                             ))}
-                          </ul>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -606,85 +599,155 @@ interface ProgressoModalProps {
 }
 
 function ProgressoModal({ aluno, onClose, onSave }: ProgressoModalProps) {
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [modulosStatus, setModulosStatus] = useState<{
-    moduloId: number;
+    [moduloId: number]: {
     status: string;
     dataInicio: string;
-    dataTermino: string;
-  }[]>(
-    aluno.alunoModulos?.map((am) => ({
-      moduloId: am.moduloId,
-      status: am.status,
-      dataInicio: am.dataInicio ? new Date(am.dataInicio).toISOString().split('T')[0] : '',
-      dataTermino: am.dataTermino ? new Date(am.dataTermino).toISOString().split('T')[0] : '',
-    })) || []
-  );
+      dataFim: string;
+      celulasProgresso: {
+        [celulaId: number]: {
+          presente: boolean;
+          horasFeitas: number;
+        };
+      };
+    };
+  }>({});
 
-  const [isSaving, setIsSaving] = useState(false);
-
-  const handleModuloChange = (moduloId: number, field: string, value: string) => {
-    setModulosStatus(
-      modulosStatus.map((m) =>
-        m.moduloId === moduloId ? { ...m, [field]: value } : m
-      )
-    );
+  const formatarData = (data: string | null | undefined): string => {
+    if (!data) return 'Não iniciado';
+    return new Date(data).toLocaleDateString('pt-BR');
   };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'PENDENTE':
-        return 'Pendente';
-      case 'EM_ANDAMENTO':
-        return 'Em Andamento';
-      case 'CONCLUIDO':
-        return 'Concluído';
-      default:
-        return status;
-    }
+  const handleCelulaChange = (moduloId: number, celulaId: number, presente: boolean) => {
+    setModulosStatus((prev: typeof modulosStatus) => {
+      const novoStatus = { ...prev };
+      if (!novoStatus[moduloId]) {
+        novoStatus[moduloId] = {
+          status: 'pendente',
+          dataInicio: '',
+          dataFim: '',
+          celulasProgresso: {}
+        };
+      }
+      
+      novoStatus[moduloId].celulasProgresso[celulaId] = {
+        presente,
+        horasFeitas: presente ? 4 : 0
+      };
+
+      // Atualizar status do módulo automaticamente
+      const modulo = aluno.curso?.modulos?.find((m) => m.id === moduloId);
+      if (modulo) {
+        const totalCelulas = modulo.celulas?.length || 0;
+        const celulasRegistradas = Object.values(novoStatus[moduloId].celulasProgresso).length;
+        const celulasPresentes = Object.values(novoStatus[moduloId].celulasProgresso)
+          .filter((c: { presente: boolean }) => c.presente).length;
+
+        if (celulasRegistradas === 0) {
+          novoStatus[moduloId].status = 'pendente';
+        } else if (celulasPresentes === totalCelulas) {
+          novoStatus[moduloId].status = 'concluido';
+          if (!novoStatus[moduloId].dataFim) {
+            novoStatus[moduloId].dataFim = new Date().toISOString().split('T')[0];
+          }
+        } else if (celulasPresentes > 0) {
+          novoStatus[moduloId].status = 'em_progresso';
+          if (!novoStatus[moduloId].dataInicio) {
+            novoStatus[moduloId].dataInicio = new Date().toISOString().split('T')[0];
+          }
+        }
+      }
+
+      return novoStatus;
+    });
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'PENDENTE':
-        return 'bg-gray-200';
-      case 'EM_ANDAMENTO':
-        return 'bg-blue-200';
-      case 'CONCLUIDO':
-        return 'bg-green-200';
-      default:
-        return 'bg-gray-200';
-    }
-  };
+  useEffect(() => {
+    const carregarDados = async () => {
+      setIsLoading(true);
+      setError(null);
+      const novoModulosStatus: typeof modulosStatus = {};
 
-  const formatarData = (dataString: string | null | undefined) => {
-    if (!dataString) return '-';
-    const data = new Date(dataString);
-    return data.toLocaleDateString('pt-BR');
-  };
+      try {
+        for (const am of aluno.alunoModulos || []) {
+          novoModulosStatus[am.moduloId] = {
+            status: am.status || 'pendente',
+            dataInicio: am.dataInicio ? new Date(am.dataInicio).toISOString().split('T')[0] : '',
+            dataFim: am.dataFim ? new Date(am.dataFim).toISOString().split('T')[0] : '',
+            celulasProgresso: {}
+          };
+
+          // Carregar presenças para cada célula do módulo
+          const response = await fetch(
+            `${API_BASE_URL}/api/alunos/${aluno.id}/modulos/${am.moduloId}/presencas`,
+            {
+              headers: {
+                Authorization: `Bearer ${localStorage.getItem('@SysSolda:token')}`,
+              },
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error('Erro ao carregar presenças');
+          }
+
+          const presencas = await response.json();
+          
+          // Organizar presenças por célula
+          presencas.forEach((presenca: any) => {
+            novoModulosStatus[am.moduloId].celulasProgresso[presenca.celulaId] = {
+              presente: presenca.presente,
+              horasFeitas: presenca.horasFeitas
+            };
+          });
+        }
+
+        setModulosStatus(novoModulosStatus);
+      } catch (error) {
+        console.error('Erro ao carregar dados:', error);
+        setError('Erro ao carregar dados. Por favor, tente novamente.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    carregarDados();
+  }, [aluno]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-
+    setError(null);
+    
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/alunos/${aluno.id}/progresso`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${localStorage.getItem('@SysSolda:token')}`,
-          },
-          body: JSON.stringify({
-            modulosStatus: modulosStatus.map(({ moduloId, status, dataInicio, dataTermino }) => ({
-              moduloId,
-              status,
-              dataInicio: dataInicio || null,
-              dataTermino: dataTermino || null,
-            })),
-          }),
-        }
-      );
+      // Preparar os dados para atualização
+      const modulosParaAtualizar = Object.entries(modulosStatus).map(([moduloId, moduloData]) => ({
+        moduloId: Number(moduloId),
+        status: moduloData.status,
+        dataInicio: moduloData.dataInicio || null,
+        dataFim: moduloData.dataFim || null,
+        celulasProgresso: Object.entries(moduloData.celulasProgresso).map(([celulaId, celulaData]) => ({
+          celulaId: Number(celulaId),
+          presente: celulaData.presente,
+          horasFeitas: celulaData.horasFeitas,
+          data: new Date().toISOString(),
+        })),
+      }));
+
+      // Atualizar progresso usando a rota correta
+      const response = await fetch(`${API_BASE_URL}/api/alunos/${aluno.id}/progresso`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('@SysSolda:token')}`,
+        },
+        body: JSON.stringify({
+          modulosStatus: modulosParaAtualizar,
+        }),
+      });
 
       if (!response.ok) {
         throw new Error('Erro ao atualizar progresso');
@@ -692,7 +755,8 @@ function ProgressoModal({ aluno, onClose, onSave }: ProgressoModalProps) {
 
       onSave();
     } catch (error) {
-      console.error('Erro ao atualizar progresso:', error);
+      console.error('Erro ao salvar progresso:', error);
+      setError('Erro ao salvar dados. Por favor, tente novamente.');
     } finally {
       setIsSaving(false);
     }
@@ -700,141 +764,186 @@ function ProgressoModal({ aluno, onClose, onSave }: ProgressoModalProps) {
 
   return (
     <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50 overflow-y-auto">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl p-6 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl p-6 max-h-[90vh] overflow-y-auto relative">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">
-            Atualizar Progresso - {aluno.nome}
-          </h2>
+          <h3 className="text-lg font-medium">Atualizar Progresso</h3>
           <button
-            type="button"
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
+            className="text-gray-400 hover:text-gray-500 focus:outline-none"
+            disabled={isSaving}
           >
-            <XMarkIcon className="w-6 h-6" />
+            <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
         
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-sm text-red-600">{error}</p>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          <div className="space-y-4">
         <div className="mb-4">
+              <h4 className="font-medium">{aluno.nome}</h4>
           <p className="text-sm text-gray-600">
             Curso: <span className="font-medium">{aluno.curso?.nome}</span>
           </p>
           <p className="text-sm text-gray-600">
-            Início do curso: <span className="font-medium">{formatarData(aluno.alunoModulos?.[0]?.dataInicio)}</span>
+                Início do curso: <span className="font-medium">
+                  {formatarData(aluno.alunoModulos?.[0]?.dataInicio)}
+                </span>
           </p>
         </div>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-4">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary-500 border-t-transparent"></div>
+              </div>
+            ) : (
+              <div className="space-y-6">
             {aluno.curso?.modulos?.filter(modulo => 
               aluno.alunoModulos?.some(am => am.moduloId === modulo.id)
             ).map((modulo) => {
-              const moduloStatus = modulosStatus.find(
-                (m) => m.moduloId === modulo.id
-              );
+                  const moduloStatus = modulosStatus[modulo.id];
               
               if (!moduloStatus) return null;
               
               return (
                 <div key={modulo.id} className="bg-gray-50 p-4 rounded-lg">
-                  <div className="flex flex-col space-y-4">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-                      <div>
-                        <h4 className="font-medium">{modulo.nome}</h4>
-                        <p className="text-sm text-gray-600">{modulo.descricao}</p>
+                      <div className="flex items-center justify-between mb-4">
+                        <h5 className="font-medium">{modulo.nome}</h5>
+                        <div className="flex items-center space-x-4">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-600">Status:</span>
+                            <span className={`text-sm font-medium ${
+                              moduloStatus.status === 'concluido' 
+                                ? 'text-green-600' 
+                                : moduloStatus.status === 'em_progresso' 
+                                  ? 'text-blue-600' 
+                                  : 'text-gray-600'
+                            }`}>
+                              {moduloStatus.status === 'concluido' 
+                                ? 'Concluído' 
+                                : moduloStatus.status === 'em_progresso' 
+                                  ? 'Em Progresso' 
+                                  : 'Pendente'}
+                            </span>
                       </div>
-                      <div className="mt-2 sm:mt-0">
-                        <span className={`inline-block px-2 py-1 text-xs rounded-full ${getStatusColor(moduloStatus.status)}`}>
-                          {getStatusLabel(moduloStatus.status)}
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-600">Início:</span>
+                            <span className="text-sm font-medium">
+                              {formatarData(moduloStatus.dataInicio)}
                         </span>
                       </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-600">Término:</span>
+                            <span className="text-sm font-medium">
+                              {formatarData(moduloStatus.dataFim)}
+                            </span>
                     </div>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2">
-                      <div>
-                        <label htmlFor={`status-${modulo.id}`} className="text-sm text-gray-700">
-                          Status
-                        </label>
-                        <select
-                          id={`status-${modulo.id}`}
-                          value={moduloStatus.status}
-                          onChange={(e) =>
-                            handleModuloChange(modulo.id, 'status', e.target.value)
-                          }
-                          className="input"
-                        >
-                          <option value="PENDENTE">Pendente</option>
-                          <option value="EM_ANDAMENTO">Em Andamento</option>
-                          <option value="CONCLUIDO">Concluído</option>
-                        </select>
                       </div>
-                      <div>
-                        <label htmlFor={`inicio-${modulo.id}`} className="text-sm text-gray-700">
-                          Data de Início
-                        </label>
-                        <input
-                          type="date"
-                          id={`inicio-${modulo.id}`}
-                          value={moduloStatus.dataInicio}
-                          onChange={(e) =>
-                            handleModuloChange(modulo.id, 'dataInicio', e.target.value)
-                          }
-                          className="input"
-                        />
                       </div>
-                      <div>
-                        <label htmlFor={`termino-${modulo.id}`} className="text-sm text-gray-700">
-                          Data de Término
-                        </label>
-                        <input
-                          type="date"
-                          id={`termino-${modulo.id}`}
-                          value={moduloStatus.dataTermino}
-                          onChange={(e) =>
-                            handleModuloChange(modulo.id, 'dataTermino', e.target.value)
-                          }
-                          className="input"
-                        />
+
+                      <div className="mt-4">
+                        <h6 className="text-sm font-medium text-gray-700 mb-2">Células:</h6>
+                        <div className="grid grid-cols-5 gap-4">
+                          {modulo.celulas?.map((celula) => {
+                            const celulaProgresso = moduloStatus.celulasProgresso[celula.id] || null;
+
+                            return (
+                              <div key={celula.id} className="bg-white p-3 rounded border">
+                                <div className="flex flex-col space-y-2">
+                                  <div className="flex justify-between items-start">
+                                    <span className="text-sm font-medium">{celula.siglaTecnica}</span>
+                                    {celulaProgresso && (
+                                      <span className="text-xs text-gray-500">
+                                        {new Date().toLocaleDateString()}
+                                      </span>
+                                    )}
                       </div>
+                                  <div className="flex gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCelulaChange(
+                                        modulo.id,
+                                        celula.id,
+                                        true
+                                      )}
+                                      disabled={isSaving || celulaProgresso?.presente === true}
+                                      className={`flex-1 p-2 rounded flex items-center justify-center transition-colors ${
+                                        celulaProgresso?.presente === true
+                                          ? 'bg-green-100 text-green-600'
+                                          : 'bg-gray-100 text-gray-600 hover:bg-green-50 hover:text-green-600'
+                                      } disabled:opacity-50`}
+                                      title="Marcar Presença"
+                                    >
+                                      <CheckIcon className="w-5 h-5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCelulaChange(
+                                        modulo.id,
+                                        celula.id,
+                                        false
+                                      )}
+                                      disabled={isSaving || celulaProgresso?.presente === false}
+                                      className={`flex-1 p-2 rounded flex items-center justify-center transition-colors ${
+                                        celulaProgresso?.presente === false
+                                          ? 'bg-red-100 text-red-600'
+                                          : 'bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-600'
+                                      } disabled:opacity-50`}
+                                      title="Marcar Falta"
+                                    >
+                                      <XMarkIcon className="w-5 h-5" />
+                                    </button>
                     </div>
-                    
-                    <div className="mt-2">
-                      <h5 className="text-sm font-medium">Aulas:</h5>
-                      <ul className="list-disc list-inside text-sm mt-1">
-                        {modulo.aulas?.map((aula) => (
-                          <li key={aula.id} className="flex items-center space-x-2">
-                            <span>{aula.nome}</span>
-                            <span className="text-gray-500">({aula.cargaHoraria}h)</span>
-                            {aula.siglaTecnica && (
-                              <span className="px-2 py-0.5 bg-primary-100 text-primary-800 rounded text-xs">
-                                {aula.siglaTecnica}
+                                  <div className="text-xs text-center">
+                                    {celulaProgresso ? (
+                                      celulaProgresso.presente === null ? (
+                                        <span className="text-gray-500">Não registrado</span>
+                                      ) : (
+                                        <span className={`font-medium ${
+                                          celulaProgresso.presente ? 'text-green-600' : 'text-red-600'
+                                        }`}>
+                                          {celulaProgresso.presente ? 'Presente' : 'Falta'}
                               </span>
+                                      )
+                                    ) : (
+                                      <span className="text-gray-500">Não registrado</span>
                             )}
-                          </li>
-                        ))}
-                      </ul>
                     </div>
                   </div>
                 </div>
               );
             })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-6">
+          <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
             <button
               type="button"
               onClick={onClose}
               disabled={isSaving}
-              className="btn btn-secondary w-full sm:w-auto disabled:opacity-50"
+              className="btn btn-secondary disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              disabled={isSaving}
-              className="btn btn-primary w-full sm:w-auto disabled:opacity-50"
+              disabled={isSaving || isLoading}
+              className="btn btn-primary disabled:opacity-50 min-w-[100px]"
             >
               {isSaving ? (
-                <div className="w-5 h-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                </div>
               ) : (
                 'Salvar'
               )}

@@ -28,6 +28,7 @@ export function Layout({ children }: LayoutProps) {
     { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
     { name: 'Alunos', href: '/alunos', icon: UserGroupIcon },
     { name: 'Cursos', href: '/cursos', icon: AcademicCapIcon },
+    { name: 'Acompanhamento', href: '/acompanhamento', icon: AcademicCapIcon },
   
   ];
 

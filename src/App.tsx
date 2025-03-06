@@ -5,6 +5,7 @@ import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Alunos } from './pages/Alunos';
 import { Cursos } from './pages/Cursos';
+import { Acompanhamento } from './pages/Acompanhamento';
 
 export function App() {
   return (
@@ -33,6 +34,14 @@ export function App() {
             element={
               <PrivateRoute>
                 <Cursos />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/acompanhamento"
+            element={
+              <PrivateRoute>
+                <Acompanhamento />
               </PrivateRoute>
             }
           />

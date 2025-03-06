@@ -1,9 +1,10 @@
-export const API_BASE_URL = 'https://back-endsyssolda.onrender.com';
+export const API_BASE_URL =  'http://localhost:3000'; //desenvolvimento
+// export const API_BASE_URL =  'https://back-endsyssolda.onrender.com'; //produção
 
 export interface Usuario {
   id: number;
-  email: string;
   nome: string;
+  email: string;
   role: string;
 }
 
@@ -13,12 +14,13 @@ export interface Aluno {
   cpf: string;
   email: string;
   telefone: string;
+  idade: number;
   usaOculos: boolean;
   destroCanhoto: 'DESTRO' | 'CANHOTO';
-  idade: number;
   cursoId: number;
   curso?: Curso;
   alunoModulos?: AlunoModulo[];
+  presencas?: Presenca[];
   createdAt: string;
   updatedAt: string;
 }
@@ -40,31 +42,46 @@ export interface Modulo {
   id: number;
   nome: string;
   descricao: string;
+  cargaHorariaTotal: number;
   cursoId: number;
-  aulas?: Aula[];
+  curso?: Curso;
+  celulas?: Celula[];
+  alunoModulos?: AlunoModulo[];
   createdAt: string;
   updatedAt: string;
 }
 
-export interface Aula {
+export interface Celula {
   id: number;
-  nome: string;
-  descricao: string;
-  cargaHoraria: number;
+  ordem: number;
   siglaTecnica: string;
-  moduloId: number;
-  createdAt: string;
-  updatedAt: string;
+  moduloId?: number;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface AlunoModulo {
   id: number;
   alunoId: number;
   moduloId: number;
-  status: 'PENDENTE' | 'EM_ANDAMENTO' | 'CONCLUIDO';
-  dataInicio?: string | null;
-  dataTermino?: string | null;
+  status: string;
+  dataInicio: string | null;
+  dataFim: string | null;
+  aluno?: Aluno;
   modulo?: Modulo;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Presenca {
+  id: number;
+  alunoId: number;
+  celulaId: number;
+  data: string;
+  presente: boolean;
+  horasFeitas: number;
+  aluno?: Aluno;
+  celula?: Celula;
   createdAt: string;
   updatedAt: string;
 }
@@ -72,4 +89,14 @@ export interface AlunoModulo {
 export interface AuthResponse {
   usuario: Usuario;
   token: string;
+}
+
+export interface NovoModulo {
+  id?: number;
+  nome: string;
+  descricao: string;
+  numeroCelulas?: number;
+  siglaTecnica?: string;
+  celulas?: Celula[];
+  cargaHorariaTotal?: number;
 } 
