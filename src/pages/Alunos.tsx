@@ -739,12 +739,12 @@ function ProgressoModal({ aluno, onClose, onSave }: ProgressoModalProps) {
 
       // Atualizar progresso usando a rota correta
       const response = await fetch(`${API_BASE_URL}/api/alunos/${aluno.id}/progresso`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('@SysSolda:token')}`,
-        },
-        body: JSON.stringify({
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${localStorage.getItem('@SysSolda:token')}`,
+          },
+          body: JSON.stringify({
           modulosStatus: modulosParaAtualizar,
         }),
       });
